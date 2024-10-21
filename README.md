@@ -4,9 +4,9 @@
 
 This is an addon that adds Wigglebones to Godot 4.x. Wigglebones are bones that Wiggle when the skeleton moves. They are used for procedural animation, so you can move only the important parts of the skeleton and the little bits will automatically Wiggle with it.
 
-![Jiggle](images/Jiggle.gif)
+![Jiggle](images/jiggle.gif)
 
-![Jiggle](images/Jiggle_move.gif)
+![Jiggle](images/jiggle_move.gif)
 
 It can be used for:
 
