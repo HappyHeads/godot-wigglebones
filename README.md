@@ -1,4 +1,4 @@
-**This is a fork of the Jigglebone addon that is ported to SkeletonModifer3D.**
+**This is a fork of the Jigglebone addon that is ported to SkeletonModifer3D and adds more functionally.**
 
 # Godot Wigglebones
 
