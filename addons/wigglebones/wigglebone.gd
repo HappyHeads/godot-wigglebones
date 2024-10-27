@@ -27,6 +27,13 @@ enum Axis {
 @export var pull_force: float = 9.8
 ## Exaggerate wiggle movement by adding skeleton velocity into the calculation.
 @export var add_body_motion: float = 0
+@export_category("Constraints")
+## Hard limit on the rotation of the bone in degress. 0 means disabled.
+@export var max_degress : float
+@export_group("Axis Lock")
+@export var lock_x : bool
+@export var lock_y : bool
+@export var lock_z : bool
 @export_category("Gravity")
 ## Make bone gravitate towards a specific direction instead of pointing straight.
 @export var use_gravity: bool = false
@@ -35,7 +42,7 @@ enum Axis {
 ## Strength and direction of the force (In world space).
 @export var gravity := Vector3(0, -9.8, 0)
 @export_category("Axis & Collision Shape")
-@export var forward_axis: Axis = Axis.Z_Minus
+@export var forward_axis: Axis = Axis.Y_Plus
 @export_node_path("CollisionShape3D") var collision_shape: NodePath 
 
 var skeleton: Skeleton3D
@@ -45,6 +52,7 @@ var collision_sphere: CollisionShape3D
 var prev_pos: Vector3
 var prev_pos_body: Vector3
 var delta: float = 1
+
 
 func _validate_property(property: Dictionary) -> void:
 	if property.name == "bone":
@@ -75,6 +83,7 @@ func _ready() -> void:
 	assert(bone_id != -1, "%s: Unknown bone %s - Please enter a valid bone name" % [ name, bone ])
 	bone_id_parent = skeleton.get_bone_parent(bone_id)
 
+
 func _process_modification() -> void:
 	# Note:
 	# Local space = local to the bone
@@ -87,7 +96,6 @@ func _process_modification() -> void:
 		delta = get_physics_process_delta_time()
 	else:
 		delta = get_process_delta_time()
-		#delta = get_physics_process_delta_time()
 
 	var bone_transf_obj: Transform3D = skeleton.get_bone_global_pose(bone_id) # Object space bone pose
 	var bone_transf_world: Transform3D = skeleton.global_transform * bone_transf_obj
@@ -101,7 +109,7 @@ func _process_modification() -> void:
 	## If not using gravity, apply force in the direction of the bone (so it always wants to point "forward")
 	var grav: Vector3 = (bone_transf_rest_world.basis * get_bone_forward_local()).normalized() * pull_force
 	var vel: Vector3 = (global_transform.origin - prev_pos) / delta
-	
+
 	if is_nan(vel.x): # Divide by 0 failsafe
 		vel = Vector3.ZERO
 	
@@ -122,7 +130,7 @@ func _process_modification() -> void:
 
 	var goal_pos: Vector3 = skeleton.to_global(skeleton.get_bone_global_pose(bone_id).origin)
 	global_transform.origin = goal_pos + (global_transform.origin - goal_pos).normalized() * length
-
+	
 	if collision_sphere:
 		# If bone is inside the collision sphere, push it out
 		var test_vec: Vector3 = global_transform.origin - collision_sphere.global_transform.origin
@@ -134,11 +142,25 @@ func _process_modification() -> void:
 
 	var diff_vec_local: Vector3 = (bone_transf_world.affine_inverse() * global_transform.origin).normalized()
 	
+	# Axis constraint
+	if lock_x:
+		diff_vec_local.x = 0
+	if lock_y:
+		diff_vec_local.y = 0
+	if lock_z:
+		diff_vec_local.z = 0
+	if lock_z or lock_y or lock_x:
+		diff_vec_local = diff_vec_local.normalized()
+	
 	var bone_forward_local: Vector3 = get_bone_forward_local()
 
 	# The axis+angle to rotate on, in local-to-bone space
 	var bone_rotate_axis: Vector3 = bone_forward_local.cross(diff_vec_local)
 	var bone_rotate_angle: float = acos(bone_forward_local.dot(diff_vec_local))
+	
+	# Rotation constraint
+	if max_degress > 0:
+		bone_rotate_angle = minf(deg_to_rad(max_degress),bone_rotate_angle)
 
 	if bone_rotate_axis.length() < 1e-3:
 		return  # Already aligned, no need to rotate
@@ -153,6 +175,7 @@ func _process_modification() -> void:
 
 	# Orient this object to the jigglebone
 	global_transform.basis = (skeleton.global_transform * skeleton.get_bone_global_pose(bone_id)).basis
+
 
 func get_bone_forward_local() -> Vector3:
 	match forward_axis:
